@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Редактор дел — Слепой свидетель</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main class="screen editor">
+    <header>
+      <div>
+        <h2>Редактор дел</h2>
+        <p class="meta">Дело проверяется теми же правилами, что и движок игры.</p>
+      </div>
+      <div class="room"><a href="/">← к игре</a></div>
+    </header>
+
+    <div class="tabs">
+      <button data-tab="form" class="active">Форма</button>
+      <button data-tab="prompt">Промт / JSON</button>
+    </div>
+
+    <section id="tab-form" class="panel">
+      <div class="grid">
+        <label>Название<input data-field="title" placeholder="Маяк на Ольховой косе"></label>
+        <label>id дела<input data-field="id" placeholder="lighthouse-01"></label>
+        <label>Жертва<input data-field="victim" placeholder="Ольга Верн, владелица маяка"></label>
+        <label>Место<input data-field="place" placeholder="причал"></label>
+        <label>Время смерти<input data-field="timeOfDeath" placeholder="22:40"></label>
+        <label>Оружие<input data-field="weapon" placeholder="плетёный трос"></label>
+      </div>
+
+      <h3>Подозреваемые</h3>
+      <div id="suspects"></div>
+      <button data-add="suspects">Добавить подозреваемого</button>
+      <label class="inline">Убийца <select id="culprit"></select></label>
+
+      <h3>Улики</h3>
+      <div id="clues"></div>
+      <button data-add="clues">Добавить улику</button>
+
+      <div class="editor-actions">
+        <button class="wax" id="check">Проверить дело</button>
+        <button id="download">Скачать JSON</button>
+        <button id="reset">Начать заново</button>
+      </div>
+      <div id="result" class="result"></div>
+    </section>
+
+    <section id="tab-prompt" class="panel hidden">
+      <h3>Промт для модели</h3>
+      <pre id="prompt" class="prompt"></pre>
+      <button id="copy">Скопировать промт</button>
+
+      <h3>Ответ модели</h3>
+      <textarea id="paste" rows="10" placeholder="Вставьте JSON из ответа модели"></textarea>
+      <button id="load">Загрузить в форму</button>
+      <p id="loadError" class="error"></p>
+
+      <h3>Текущее дело</h3>
+      <textarea id="json" rows="14" readonly></textarea>
+    </section>
+  </main>
+
+  <script type="module" src="/editor.js"></script>
+</body>
+</html>

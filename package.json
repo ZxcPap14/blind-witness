@@ -1,0 +1,14 @@
+{
+  "name": "blind-witness",
+  "version": "0.1.0",
+  "description": "Кооперативный детектив: истина в коде, каждый игрок видит только свою часть дела",
+  "type": "module",
+  "scripts": {
+    "start": "node server/index.mjs",
+    "test": "node --test \"test/*.test.js\""
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "license": "MIT"
+}

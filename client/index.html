@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Слепой свидетель</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <section id="join" class="screen">
+    <h1>Слепой свидетель</h1>
+    <p class="lead">Дело одно на всех. Каждый видит только свою часть.</p>
+    <form id="authForm">
+      <input id="name" placeholder="Имя" maxlength="24" autocomplete="username">
+      <input id="password" type="password" placeholder="Пароль" autocomplete="current-password">
+      <div class="auth-buttons">
+        <button id="loginBtn" type="submit">Войти</button>
+        <button id="registerBtn" type="button">Создать аккаунт</button>
+        <button id="guestBtn" type="button">Гостем</button>
+      </div>
+    </form>
+    <p id="joinError" class="error"></p>
+    <div class="company">
+      <h3>Таблица компании</h3>
+      <ol id="leaderboard"></ol>
+    </div>
+  </section>
+
+  <main id="game" class="screen hidden">
+    <header>
+      <div>
+        <h2 id="caseTitle">—</h2>
+        <p id="caseVictim" class="meta"></p>
+      </div>
+      <div class="room">
+        <div id="who" class="who"></div>
+        <div>комната <strong id="roomCode"></strong></div>
+        <button id="logout" class="ghost hidden">Выйти</button>
+      </div>
+    </header>
+
+    <div id="lobby" class="panel">
+      <h3>Ожидание</h3>
+      <ul id="playerList"></ul>
+      <button id="startBtn">Начать дело</button>
+      <p class="meta">Нужно минимум двое. Остальные входят по этой же ссылке.</p>
+    </div>
+
+    <div id="table" class="hidden">
+      <section class="panel documents">
+        <h3>Мои документы</h3>
+        <div id="clues"></div>
+      </section>
+
+      <section class="panel tabletop">
+        <div class="tabletop-head">
+          <h3>Общий стол</h3>
+          <span id="timer" class="timer">00:00</span>
+        </div>
+        <div id="board"></div>
+        <form id="noteForm">
+          <input id="noteText" placeholder="Заметка" maxlength="240" autocomplete="off">
+          <label class="secret-toggle"><input type="checkbox" id="noteSecret"> только для меня</label>
+          <button type="submit">Положить</button>
+        </form>
+      </section>
+
+      <section class="panel suspects">
+        <h3>Подозреваемые</h3>
+        <ul id="suspectList"></ul>
+        <p class="meta">Обвинение требует верного имени и всех трёх линий: место, время, оружие.</p>
+      </section>
+    </div>
+
+    <section class="panel log">
+      <h3>Разговоры</h3>
+      <ul id="chatList"></ul>
+      <form id="chatForm">
+        <input id="chatText" placeholder="Сообщение" maxlength="400" autocomplete="off">
+        <button type="submit">Отправить</button>
+      </form>
+    </section>
+
+    <div id="verdict" class="verdict hidden"></div>
+  </main>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
