@@ -29,15 +29,15 @@ for (const clueId of ["c1", "c2", "c7"]) anya.send({ t: "attach", clueId });
 for (const clueId of ["c5", "c10"]) boris.send({ t: "attach", clueId });
 await sleep(200);
 
-anya.send({ t: "note", text: "Человек в дождевике у причала — искать среди моряков" });
-boris.send({ t: "note", text: "Счёт закрыт в 21:50, алиби Крюка рвётся" });
-anya.send({ t: "note", text: "Страховка на 20 000 в пользу брата", secret: true });
+anya.send({ t: "note", text: "Искать того, кто не может подтвердить алиби" });
+boris.send({ t: "note", text: "Время смерти сужает круг — сверяйте отметки" });
+anya.send({ t: "note", text: "Мотив есть у двоих, проверяем связи", secret: true });
 await sleep(200);
 
 anya.send({ t: "suspect", suspectId: "s3", on: true });
 boris.send({ t: "suspect", suspectId: "s3", on: true });
-anya.send({ t: "chat", text: "Крюк хромает — примета сходится, прикладывайте время смерти" });
-boris.send({ t: "chat", text: "Смерть 22:30–22:50, значит он успевал" });
+anya.send({ t: "chat", text: "Примета сходится со свидетелем, прикладывайте время смерти" });
+boris.send({ t: "chat", text: "Смерть точно до выхода — значит успевал" });
 anya.send({ t: "ask", suspectId: "s3", text: "Где ты был в 22:40 вечером?" });
 anya.send({ t: "ask", suspectId: "s2", text: "Крюк сидел у тебя в таверне?" });
 await sleep(400);
