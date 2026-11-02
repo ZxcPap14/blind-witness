@@ -11,6 +11,7 @@
     <h1>Слепой свидетель</h1>
     <p class="lead">Дело одно на всех. Каждый видит только свою часть.</p>
     <form id="authForm">
+      <input id="roomCode" class="wide" placeholder="Код комнаты (пусто — новая)" maxlength="16" autocomplete="off" spellcheck="false">
       <input id="name" placeholder="Имя" maxlength="24" autocomplete="username">
       <input id="password" type="password" placeholder="Пароль" autocomplete="current-password">
       <div class="auth-buttons">
@@ -34,10 +35,12 @@
       </div>
       <div class="room">
         <div id="who" class="who"></div>
-        <div>комната <strong id="roomCode"></strong></div>
+        <div>комната <strong id="roomLabel"></strong></div>
         <button id="logout" class="ghost hidden">Выйти</button>
       </div>
     </header>
+
+    <div id="verdict" class="verdict hidden"></div>
 
     <div id="lobby" class="panel">
       <h3>Ожидание</h3>
@@ -80,8 +83,6 @@
         <button type="submit">Отправить</button>
       </form>
     </section>
-
-    <div id="verdict" class="verdict hidden"></div>
   </main>
 
   <script type="module" src="/app.js"></script>

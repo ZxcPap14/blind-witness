@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { validateCase } from "../server/editor.mjs";
-import { loadCase } from "../server/case.mjs";
+import { loadCase } from "../server/load.mjs";
 
 const good = loadCase(new URL("../cases/lighthouse-01.json", import.meta.url));
 

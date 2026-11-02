@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { loadCase, projection } from "../server/case.mjs";
+import { loadCase, projection } from "../server/load.mjs";
 
 const caseData = loadCase(new URL("../cases/lighthouse-01.json", import.meta.url));
 

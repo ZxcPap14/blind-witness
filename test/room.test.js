@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Room, CORE_ROLES } from "../server/room.mjs";
-import { loadCase } from "../server/case.mjs";
+import { loadCase } from "../server/load.mjs";
 
 const caseData = loadCase(new URL("../cases/lighthouse-01.json", import.meta.url));
 
@@ -95,6 +95,17 @@ test("метка «подозреваю» ставится и снимается
   assert.deepEqual(room.state().suspicion, { s3: ["Аня"] });
   room.suspect("Аня", "s3", false);
   assert.deepEqual(room.state().suspicion, { s3: [] });
+});
+
+test("снимок и восстановление сохраняют стол и роли", () => {
+  const { room } = makeRoom(["Аня", "Боря"]);
+  room.start("Аня");
+  room.note("Аня", "заметка", true);
+  room.suspect("Аня", "s3");
+  const restored = new Room("test", caseData, () => {});
+  restored.load(JSON.parse(JSON.stringify(room.snapshot())));
+  assert.deepEqual(restored.state("Аня"), room.state("Аня"));
+  assert.deepEqual(restored.state("Боря").cards, room.state("Боря").cards);
 });
 
 test("неверное обвинение закрывает дело", () => {

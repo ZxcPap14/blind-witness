@@ -25,6 +25,44 @@ export class Room {
     this.finished = null;
     this.noteSeq = 0;
     this.onFinish = null;
+    this.persist = null;
+  }
+
+  // Плоское состояние без сокетов: годится и для Durable Object storage, и для отладки.
+  snapshot() {
+    return {
+      code: this.code,
+      caseId: this.caseData.id,
+      players: [...this.players].map(([name, player]) => [name, { roles: player.roles, userId: player.userId ?? null }]),
+      evidence: [...this.evidence],
+      notes: this.notes,
+      positions: [...this.positions],
+      suspicion: [...this.suspicion].map(([id, names]) => [id, [...names]]),
+      chat: this.chat.slice(-60),
+      attempts: this.attempts,
+      started: this.started,
+      startedAt: this.startedAt,
+      finished: this.finished,
+      noteSeq: this.noteSeq,
+    };
+  }
+
+  // Восстановление после выгрузки объекта: сокеты приходят заново, их в снимке нет.
+  load(data) {
+    this.code = data.code ?? this.code;
+    for (const [name, player] of data.players ?? []) {
+      this.players.set(name, { roles: player.roles ?? [], userId: player.userId ?? null, ws: null });
+    }
+    this.evidence = new Set(data.evidence ?? []);
+    this.notes = data.notes ?? [];
+    this.positions = new Map(data.positions ?? []);
+    this.suspicion = new Map((data.suspicion ?? []).map(([id, names]) => [id, new Set(names)]));
+    this.chat = data.chat ?? [];
+    this.attempts = data.attempts ?? 0;
+    this.started = Boolean(data.started);
+    this.startedAt = data.startedAt ?? null;
+    this.finished = data.finished ?? null;
+    this.noteSeq = data.noteSeq ?? 0;
   }
 
   get host() {
@@ -117,6 +155,7 @@ export class Room {
     this.positions.set(id, next);
     // Движение мыши не гоняет весь снапшот: только одну карточку.
     this.broadcast({ t: "moved", id, ...next });
+    this.persist?.();
   }
 
   suspect(name, suspectId, on = true) {
@@ -209,6 +248,7 @@ export class Room {
   }
 
   pushState() {
+    this.persist?.();
     for (const name of this.players.keys()) this.send(name, this.state(name));
   }
 }

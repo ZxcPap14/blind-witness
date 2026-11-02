@@ -22,7 +22,7 @@ const KIND_NAMES = {
 const ERRORS = {
   need_name: "Введите имя",
   room_full: "В комнате уже пятеро",
-  game_over: "Дело закрыто, начните новую комнату",
+  game_over: "Это дело уже завершено. Введите код другой комнаты.",
   already_started: "Дело уже начато",
   not_host: "Начать может только создатель комнаты",
   need_two: "Нужно минимум двое игроков",
@@ -54,10 +54,25 @@ let drag = null;
 const cardEls = new Map();
 
 const params = new URLSearchParams(location.hash.slice(1));
-const code = params.get("room") || Math.random().toString(36).slice(2, 7);
-if (!params.has("room")) {
-  params.set("room", code);
-  location.hash = params.toString();
+let code = params.get("room") ?? "";
+
+// Код комнаты — только латиница и цифры, до 16 символов; из ссылки приходит готовым.
+function setCode(value) {
+  code = String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "")
+    .slice(0, 16);
+  if (code) {
+    params.set("room", code);
+    location.hash = params.toString();
+  }
+  return code;
+}
+
+function applyCode() {
+  const typed = $("roomCode").value.trim();
+  if (typed) setCode(typed);
 }
 
 const $ = (id) => document.getElementById(id);
@@ -68,6 +83,11 @@ function send(message) {
 
 $("authForm").addEventListener("submit", (event) => {
   event.preventDefault();
+  // Уже вошедшему форма служит только выбором комнаты.
+  if (state.me && state.loggedIn) {
+    applyCode();
+    return connect();
+  }
   auth("/api/login");
 });
 
@@ -76,6 +96,7 @@ $("registerBtn").addEventListener("click", () => auth("/api/register"));
 $("guestBtn").addEventListener("click", () => {
   const name = $("name").value.trim();
   if (!name) return ($("joinError").textContent = "Введите имя");
+  applyCode();
   state.me = name;
   connect();
 });
@@ -87,6 +108,7 @@ $("logout").addEventListener("click", async () => {
 
 async function auth(path) {
   $("joinError").textContent = "";
+  applyCode();
   const response = await fetch(path, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -104,14 +126,27 @@ async function boot() {
 
   if (me.user) {
     state.me = me.user.name;
+    state.loggedIn = true;
     $("who").textContent = `${me.user.name} · ${me.stats.wins} из ${me.stats.games}`;
     $("logout").classList.remove("hidden");
-    $("join").classList.add("hidden");
-    $("game").classList.remove("hidden");
-    return connect();
+    if (code) {
+      $("join").classList.add("hidden");
+      $("game").classList.remove("hidden");
+      return connect();
+    }
+    // Без кода в ссылке остаётся выбор комнаты: имя берётся из аккаунта.
+    $("name").value = me.user.name;
+    $("name").disabled = true;
+    $("password").classList.add("hidden");
+    $("registerBtn").classList.add("hidden");
+    $("guestBtn").classList.add("hidden");
+    $("loginBtn").textContent = "Войти в комнату";
+    $("roomCode").value = "";
+    return;
   }
 
   loadLeaderboard();
+  $("roomCode").value = code;
 
   // Ссылка с именем сразу вводит в комнату (#room=abc&name=Аня).
   if (params.get("name")) {
@@ -130,7 +165,12 @@ async function loadLeaderboard() {
 }
 
 function connect() {
-  const url = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`;
+  if (!code) setCode(Math.random().toString(36).slice(2, 7));
+  $("roomCode").value = code;
+  // Комнатой в Cloudflare служит Durable Object, а его выбирают по URL, а не по сообщению.
+  const caseId = params.get("case");
+  const query = `room=${encodeURIComponent(code)}${caseId ? `&case=${encodeURIComponent(caseId)}` : ""}`;
+  const url = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws?${query}`;
   socket = new WebSocket(url);
   socket.addEventListener("open", () => send({ t: "join", name: state.me }));
   socket.addEventListener("message", (event) => handle(JSON.parse(event.data)));
@@ -181,7 +221,7 @@ function showError(code) {
 }
 
 function render() {
-  $("roomCode").textContent = code;
+  $("roomLabel").textContent = code;
   const isHost = state.host === state.me;
 
   $("lobby").classList.toggle("hidden", state.started);
@@ -198,15 +238,17 @@ function render() {
 
   if (!state.started) return;
 
-  $("clues").innerHTML = state.clues
-    .map((clue) => {
-      const attached = state.evidence.includes(clue.id);
-      return `<div class="card-row">
-        <span class="tag">${KIND_NAMES[clue.kind] ?? clue.kind}</span>${escape(clue.text)}
-        <div><button data-attach="${clue.id}" ${attached ? "disabled" : ""}>${attached ? "приложено" : "приложить к делу"}</button></div>
-      </div>`;
-    })
-    .join("");
+  $("clues").innerHTML = state.roles.length
+    ? state.clues
+        .map((clue) => {
+          const attached = state.evidence.includes(clue.id);
+          return `<div class="card-row">
+            <span class="tag">${KIND_NAMES[clue.kind] ?? clue.kind}</span>${escape(clue.text)}
+            <div><button data-attach="${clue.id}" ${attached ? "disabled" : ""}>${attached ? "приложено" : "приложить к делу"}</button></div>
+          </div>`;
+        })
+        .join("")
+    : `<p class="meta">Дело уже начато, пакеты разобрали — вы наблюдаете со стороны.</p>`;
 
   renderBoard();
 

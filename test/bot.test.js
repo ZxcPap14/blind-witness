@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { answerBot } from "../server/bot.mjs";
-import { loadCase, projection } from "../server/case.mjs";
+import { loadCase, projection } from "../server/load.mjs";
 
 const caseData = loadCase(new URL("../cases/lighthouse-01.json", import.meta.url));
 

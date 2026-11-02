@@ -215,8 +215,14 @@ form input[type="text"], form input:not([type]) { flex: 1; }
   margin: 0;
 }
 
-#authForm input { width: 100%; } display: flex; gap: 8px; flex-wrap: wrap; }
-.auth-buttons button { flex: 1; }
+#authForm input { width: 100%; }
+
+#roomCode {
+  grid-column: 1 / -1;
+  font-family: "Consolas", monospace;
+  letter-spacing: 2px;
+  text-transform: lowercase;
+}
 
 .company { margin-top: 22px; border-top: 1px solid #34373d; padding-top: 14px; }
 .company h3 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 1.2px; color: #a29b8e; }
@@ -229,7 +235,7 @@ form input[type="text"], form input:not([type]) { flex: 1; }
 button.ghost { padding: 2px 8px; font-size: 11px; margin-top: 6px; background: transparent; border-color: #43464d; }
 
 @media (max-width: 1100px) {
-  #table { grid-template-columns: 1fr; }
+  #table { grid-template-columns: minmax(0, 1fr); }
   #board { height: 420px; }
 }
 

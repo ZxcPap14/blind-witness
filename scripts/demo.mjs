@@ -1,13 +1,17 @@
 // Заполняет комнату для проверки вида: два игрока, начало дела, карточки на столе.
-// Запуск: node scripts/demo.mjs   (сервер должен работать на PORT, по умолчанию 8080)
+// Запуск: node scripts/demo.mjs            (локально, http://127.0.0.1:PORT)
+//         BASE=https://... node scripts/demo.mjs   (прод, Cloudflare)
 import WebSocket from "ws";
 
 const PORT = Number(process.env.PORT ?? 8080);
+const BASE = process.env.BASE ?? `http://127.0.0.1:${PORT}`;
 const CODE = process.env.ROOM ?? "demo";
+const CASE = process.env.CASE ?? "";
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function connect() {
-  const ws = new WebSocket(`ws://127.0.0.1:${PORT}/ws`);
+  const query = `room=${CODE}${CASE ? `&case=${CASE}` : ""}`;
+  const ws = new WebSocket(`${BASE.replace(/^http/, "ws")}/ws?${query}`);
   const send = (message) => ws.send(JSON.stringify({ ...message, code: CODE }));
   const ready = new Promise((resolve) => ws.on("open", resolve));
   return { ws, send, ready };
@@ -21,12 +25,15 @@ anya.send({ t: "join", name: "Аня" });
 boris.send({ t: "join", name: "Боря" });
 await sleep(200);
 
-anya.send({ t: "start" });
+// Хост — тот, кто вошёл первым, а порядок входа зависит от гонки: старт шлют оба, сервер примет один.
+for (const client of [anya, boris]) client.send({ t: "start" });
 await sleep(200);
 
-// При двух игроках Аня получает картографа и очевидца, Боря — писаря и лекаря.
-for (const clueId of ["c1", "c2", "c7"]) anya.send({ t: "attach", clueId });
-for (const clueId of ["c5", "c10"]) boris.send({ t: "attach", clueId });
+// При двух игроках роли делятся 2+2, кто именно кем станет — решает порядок в комнате.
+// Поэтому каждый документ прикладывают оба: чужой сервер отвергнет, владелец приложит.
+for (const clueId of ["c1", "c2", "c5", "c7", "c10", "c11"]) {
+  for (const client of [anya, boris]) client.send({ t: "attach", clueId });
+}
 await sleep(200);
 
 anya.send({ t: "note", text: "Искать того, кто не может подтвердить алиби" });
@@ -42,6 +49,6 @@ anya.send({ t: "ask", suspectId: "s3", text: "Где ты был в 22:40 веч
 anya.send({ t: "ask", suspectId: "s2", text: "Крюк сидел у тебя в таверне?" });
 await sleep(400);
 
-console.log(`http://localhost:${PORT}/#room=${CODE}&name=${encodeURIComponent("Аня")}`);
+console.log(`${BASE}/#room=${CODE}${CASE ? `&case=${CASE}` : ""}&name=${encodeURIComponent("Аня")}`);
 anya.ws.close();
 boris.ws.close();

@@ -1,5 +1,7 @@
 export const DIMS = ["place", "time", "weapon"];
 
+const DIM_NAMES = { place: "место", time: "время", weapon: "оружие" };
+
 // Обвинение проверяет только код: имя сравнивается с истиной, улики — с их proves.
 export function judge(caseData, { suspect, evidence }) {
   if (suspect !== caseData.culprit) {
@@ -25,7 +27,7 @@ export function judge(caseData, { suspect, evidence }) {
 
   return {
     result: "win",
-    reason: `Обвинение принято. Доказано: ${[...dims].join(", ")}.`,
+    reason: `Обвинение принято. Доказано: ${[...dims].map((dim) => DIM_NAMES[dim]).join(", ")}.`,
   };
 }
 

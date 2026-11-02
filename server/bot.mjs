@@ -50,8 +50,10 @@ export function answerBot(caseData, suspectId, question) {
 
 // Необязательный слой: AI_URL + AI_KEY в окружении. Любая ошибка — молча отдаём факт как есть.
 export async function polish(text, question) {
-  const url = process.env.AI_URL;
-  const key = process.env.AI_KEY;
+  // В воркере process нет — читаем окружение только если оно существует.
+  const env = globalThis.process?.env ?? {};
+  const url = env.AI_URL;
+  const key = env.AI_KEY;
   if (!url || !key) return text;
 
   try {
@@ -59,7 +61,7 @@ export async function polish(text, question) {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
       body: JSON.stringify({
-        model: process.env.AI_MODEL ?? "deepseek-v4.1-flash",
+        model: env.AI_MODEL ?? "deepseek-v4.1-flash",
         temperature: 0.6,
         max_tokens: 120,
         messages: [

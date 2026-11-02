@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { loadCases } from "../server/case.mjs";
+import { loadCases } from "../server/load.mjs";
 import { validateCase } from "../server/editor.mjs";
 
 const cases = loadCases(new URL("../cases", import.meta.url));
