@@ -27,6 +27,8 @@ export class Room {
     this.chat = [];
     this.attempts = 0;
     this.startedAt = null;
+    this.pausedAt = null; // момент, когда ведущий поставил паузу
+    this.pauseMs = 0; // сколько уже простояли на паузах
     this.finished = null;
     this.noteSeq = 0;
     this.onFinish = null;
@@ -50,6 +52,8 @@ export class Room {
       attempts: this.attempts,
       started: this.started,
       startedAt: this.startedAt,
+      pausedAt: this.pausedAt,
+      pauseMs: this.pauseMs,
       finished: this.finished,
       noteSeq: this.noteSeq,
     };
@@ -69,6 +73,8 @@ export class Room {
     this.attempts = data.attempts ?? 0;
     this.started = Boolean(data.started);
     this.startedAt = data.startedAt ?? null;
+    this.pausedAt = data.pausedAt ?? null;
+    this.pauseMs = data.pauseMs ?? 0;
     this.finished = data.finished ?? null;
     this.noteSeq = data.noteSeq ?? 0;
   }
@@ -124,6 +130,19 @@ export class Room {
     this.started = true;
     this.startedAt = Date.now();
     for (const name of this.players.keys()) this.send(name, this.packetFor(name));
+    this.pushState();
+  }
+
+  // Пауза — инструмент ведущего: таймер стоит, пока компания обсуждает вслух.
+  pause(name) {
+    if (!this.started) throw new Error("not_started");
+    if (this.players.get(name)?.mode !== "host") throw new Error("not_host");
+    if (this.pausedAt) {
+      this.pauseMs += Date.now() - this.pausedAt;
+      this.pausedAt = null;
+    } else {
+      this.pausedAt = Date.now();
+    }
     this.pushState();
   }
 
@@ -269,6 +288,8 @@ export class Room {
       chat: this.chat.slice(-60),
       attempts: this.attempts,
       startedAt: this.startedAt,
+      pausedAt: this.pausedAt,
+      pauseMs: this.pauseMs,
       finished: this.finished,
     };
     if (this.started && seesAll(player)) message.truth = this.packetFor(viewer).truth;

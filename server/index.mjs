@@ -245,6 +245,7 @@ wss.on("connection", (socket, request) => {
 
       switch (msg.t) {
         case "start": return room.start(name);
+        case "pause": return room.pause(name);
         case "attach": return room.attach(name, msg.clueId);
         case "detach": return room.detach(name, msg.clueId);
         case "note": return room.note(name, msg.text, msg.secret);

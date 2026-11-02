@@ -108,8 +108,11 @@ header h2 { margin: 0; font-size: 24px; }
 .marks { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 .marks span { background: #e6e0d3; border: 1px solid var(--line); border-radius: 10px; padding: 1px 8px; font-size: 11px; }
 
-.tabletop-head { display: flex; justify-content: space-between; align-items: baseline; }
+.tabletop-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
 .timer { font: 13px/1 "Consolas", monospace; color: var(--muted); }
+
+/* Кнопка на бумаге: цвет текста и поля задаём сами, иначе наследуется светлый из шапки. */
+.tabletop-head #pauseBtn { margin-top: 0; color: var(--ink); border: 1px solid var(--line); padding: 3px 10px; }
 
 #board {
   position: relative;

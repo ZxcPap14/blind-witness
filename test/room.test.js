@@ -175,3 +175,21 @@ test("ведущий не обвиняет, роли достаются толь
   assert.deepEqual([...room.players.values()].flatMap((player) => player.roles).sort(), [...CORE_ROLES].sort());
   assert.throws(() => room.accuse("Гоша", caseData.culprit), /not_your_call/);
 });
+
+test("пауза ведущего останавливает таймер, игроку она недоступна", () => {
+  const { room } = makeRoom(["Аня", "Боря"]);
+  room.join("Гоша", null, "host");
+  room.start("Аня");
+  assert.throws(() => room.pause("Аня"), /not_host/);
+
+  room.pause("Гоша");
+  assert.ok(room.state("Аня").pausedAt);
+  room.pause("Гоша");
+  assert.equal(room.state("Аня").pausedAt, null);
+  assert.ok(room.pauseMs >= 0);
+
+  // Пауза переживает выгрузку комнаты: иначе таймер после переподключения прыгнет.
+  const copy = new Room("test", caseData, () => {});
+  copy.load(room.snapshot());
+  assert.equal(copy.pauseMs, room.pauseMs);
+});

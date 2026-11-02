@@ -24,7 +24,7 @@ const ERRORS = {
   room_full: "В комнате уже пятеро",
   game_over: "Это дело уже завершено. Введите код другой комнаты.",
   already_started: "Дело уже начато",
-  not_host: "Начать может только создатель комнаты",
+  not_host: "Это может только ведущий комнаты",
   need_two: "Нужно минимум двое игроков",
   not_started: "Дело ещё не начато",
   not_yours: "Это документ чужой роли",
@@ -52,6 +52,8 @@ const state = {
   host: null,
   started: false,
   startedAt: null,
+  pausedAt: null,
+  pauseMs: 0,
   finished: null,
 };
 
@@ -223,6 +225,8 @@ function handle(message) {
         suspicion: message.suspicion ?? {},
         chat: message.chat ?? [],
         startedAt: message.startedAt,
+        pausedAt: message.pausedAt ?? null,
+        pauseMs: message.pauseMs ?? 0,
         finished: message.finished ?? null,
       });
       state.truth = message.truth ?? state.truth;
@@ -258,6 +262,8 @@ function render() {
   $("table").classList.toggle("hidden", !state.started);
   $("startBtn").disabled = !isHost || playing < 2;
   $("startBtn").textContent = isHost ? "Начать дело" : "Ждём создателя комнаты";
+  $("pauseBtn").classList.toggle("hidden", !(state.started && state.mode === "host"));
+  $("pauseBtn").textContent = state.pausedAt ? "Продолжить" : "Пауза";
 
   $("playerList").innerHTML = state.players
     .map((player) => {
@@ -440,6 +446,7 @@ document.addEventListener("click", (event) => {
 });
 
 $("startBtn").addEventListener("click", () => send({ t: "start" }));
+$("pauseBtn").addEventListener("click", () => send({ t: "pause" }));
 
 $("noteForm").addEventListener("submit", (event) => {
   event.preventDefault();
@@ -456,7 +463,9 @@ $("chatForm").addEventListener("submit", (event) => {
 
 setInterval(() => {
   if (!state.startedAt) return;
-  const total = Math.floor((Date.now() - state.startedAt) / 1000);
+  // Пауза ведущего не засчитывается: вычитаем и уже прошедшие паузы, и текущую.
+  const paused = state.pausedAt ? Date.now() - state.pausedAt : 0;
+  const total = Math.max(0, Math.floor((Date.now() - state.startedAt - state.pauseMs - paused) / 1000));
   const minutes = String(Math.floor(total / 60)).padStart(2, "0");
   const seconds = String(total % 60).padStart(2, "0");
   $("timer").textContent = `${minutes}:${seconds}`;

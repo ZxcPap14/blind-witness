@@ -115,6 +115,7 @@ export class RoomObject {
 
         switch (msg.t) {
           case "start": return room.start(session.name);
+          case "pause": return room.pause(session.name);
           case "attach": return room.attach(session.name, msg.clueId);
           case "detach": return room.detach(session.name, msg.clueId);
           case "note": return room.note(session.name, msg.text, msg.secret);
