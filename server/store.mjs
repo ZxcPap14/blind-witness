@@ -1,5 +1,6 @@
 import { DatabaseSync } from "node:sqlite";
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import { nameKey } from "./avatars.mjs";
 
 const SESSION_TTL = 30 * 24 * 60 * 60 * 1000;
 
@@ -66,6 +67,11 @@ export class Store {
       .prepare("INSERT INTO sessions (token, user_id, expires) VALUES (?, ?, ?)")
       .run(token, userId, Date.now() + SESSION_TTL);
     return token;
+  }
+
+  // Аватар лежит по id, а имя в ссылке — так файл не перепутается при смене регистра.
+  idByKey(name) {
+    return this.db.prepare("SELECT id FROM users WHERE key = ?").get(nameKey(name))?.id ?? null;
   }
 
   userByToken(token) {

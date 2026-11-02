@@ -1,5 +1,6 @@
 // HTTP-API прода: те же ручки и те же тексты, что у локального server/index.mjs.
 import { validateCase } from "../server/editor.mjs";
+import { AVATAR_LIMIT, sniffImage } from "../server/avatars.mjs";
 import { D1Store } from "./d1.mjs";
 
 const SESSION_COOKIE = "sid";
@@ -64,6 +65,43 @@ export async function api(request, env, url) {
     if (path === "/api/validate" && request.method === "POST") {
       const body = await request.json().catch(() => null);
       return json(validateCase(body));
+    }
+
+    // Лицо лежит в D1 по id аккаунта, а в ссылке стоит имя: так игроку не нужно знать id.
+    if (path.startsWith("/api/avatar")) {
+      const who = path.slice("/api/avatar/".length);
+      const user = await store.userByToken(cookieOf(request.headers.get("cookie"), SESSION_COOKIE));
+
+      if (request.method === "GET" || request.method === "HEAD") {
+        const id = who ? await store.idByKey(decodeURIComponent(who)) : null;
+        const face = id ? await store.avatar(id) : null;
+        if (!face) return new Response(null, { status: 404, headers: { "cache-control": "public, max-age=60" } });
+        return new Response(request.method === "HEAD" ? null : new Uint8Array(face.bytes), {
+          headers: {
+            "content-type": face.mime ?? "image/png",
+            "cache-control": "public, max-age=300",
+            "x-content-type-options": "nosniff",
+          },
+        });
+      }
+
+      if (!user) return json({ error: "Сначала войдите в аккаунт" }, 401);
+
+      if (request.method === "DELETE") {
+        await store.removeAvatar(user.id);
+        return json({ ok: true });
+      }
+
+      if (request.method === "POST") {
+        // В D1 кладём ArrayBuffer: Uint8Array bind() превращает в строку кодов через запятую.
+        const raw = await request.arrayBuffer();
+        const body = new Uint8Array(raw);
+        if (body.length > AVATAR_LIMIT) return json({ error: "Картинка больше 200 КБ" }, 413);
+        const kind = sniffImage(body);
+        if (!kind) return json({ error: "Только PNG, JPEG или WebP" }, 415);
+        await store.putAvatar(user.id, kind.mime, raw);
+        return json({ ok: true, url: `/api/avatar/${encodeURIComponent(user.name)}` });
+      }
     }
 
     return json({ error: "not_found" }, 404);

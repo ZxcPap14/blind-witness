@@ -19,3 +19,11 @@ CREATE TABLE IF NOT EXISTS stats (
   games INTEGER NOT NULL DEFAULT 0,
   wins INTEGER NOT NULL DEFAULT 0
 );
+
+-- Своё лицо: картинка до 200 КБ рядом с аккаунтом, отдаётся по имени.
+CREATE TABLE IF NOT EXISTS avatars (
+  user_id INTEGER PRIMARY KEY,
+  mime TEXT NOT NULL,
+  bytes BLOB NOT NULL,
+  updated INTEGER NOT NULL
+);

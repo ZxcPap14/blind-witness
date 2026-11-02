@@ -1,4 +1,4 @@
-import { paintAvatars } from "./avatar.js";
+import { paintAvatars, rememberAvatar } from "./avatar.js";
 
 const ROLE_NAMES = {
   map: "Штурман",
@@ -99,6 +99,22 @@ $("authForm").addEventListener("submit", (event) => {
 
 $("registerBtn").addEventListener("click", () => auth("/api/register"));
 
+// Своё лицо: файл уходит на сервер, оттуда его получают все в комнате.
+$("avatarBtn").addEventListener("click", () => $("avatarFile").click());
+
+$("avatarFile").addEventListener("change", async () => {
+  const file = $("avatarFile").files?.[0];
+  if (!file) return;
+  $("avatarNote").textContent = "";
+  if (file.size > 200 * 1024) return ($("avatarNote").textContent = "Картинка больше 200 КБ");
+  const response = await fetch("/api/avatar", { method: "POST", body: file });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) return ($("avatarNote").textContent = data.error ?? "Не получилось");
+  $("avatarFile").value = "";
+  $("avatarNote").textContent = "лицо обновлено";
+  rememberAvatar(state.me, data.url);
+});
+
 $("guestBtn").addEventListener("click", () => {
   const name = $("name").value.trim();
   if (!name) return ($("joinError").textContent = "Введите имя");
@@ -135,6 +151,7 @@ async function boot() {
     state.loggedIn = true;
     $("who").textContent = `${me.user.name} · ${me.stats.wins} из ${me.stats.games}`;
     $("logout").classList.remove("hidden");
+    $("avatarBtn").classList.remove("hidden");
     if (code) {
       $("join").classList.add("hidden");
       $("game").classList.remove("hidden");
@@ -253,6 +270,9 @@ function render() {
   $("caseTruth").textContent = state.truth ? `Правда: ${state.truth.name}` : "";
   $("caseTruth").classList.toggle("hidden", !state.truth);
 
+  // Список игроков есть и до старта, поэтому лица рисуем раньше выхода из render().
+  paintAvatars();
+
   if (!state.started) return;
 
   // Наблюдатель только смотрит: ни приложить, ни подозревать, ни обвинять.
@@ -321,8 +341,6 @@ function render() {
       ${escape(state.finished.reason)}
       ${state.finished.rating ? `<p>Оценка: ${state.finished.rating}</p>` : ""}`;
   }
-
-  paintAvatars();
 }
 
 function renderBoard() {

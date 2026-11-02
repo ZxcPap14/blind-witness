@@ -109,13 +109,64 @@ function draw(grid, context) {
   }
 }
 
+// Загруженные лица помним на странице: имя → адрес картинки, null — лица нет.
+const faces = new Map();
+// Ссылку на Image держим до конца загрузки: брошенный объект Chrome не догружает и onload не зовёт.
+const probes = new Map();
+
+const avatarUrl = (name) => `/api/avatar/${encodeURIComponent(name)}`;
+
+function check(name) {
+  const probe = new Image();
+  probe.onload = () => {
+    probes.delete(name);
+    faces.set(name, avatarUrl(name));
+    // Меняем только спрайты этого имени: полный перерендер сбил бы доску.
+    for (const slot of document.querySelectorAll("[data-avatar-name]")) {
+      if (slot.dataset.avatarName === name) {
+        slot.replaceWith(createAvatar(name, Number(slot.dataset.avatarSize) || 24));
+      }
+    }
+  };
+  probe.onerror = () => {
+    probes.delete(name);
+    faces.set(name, null);
+  };
+  probes.set(name, probe);
+  probe.src = avatarUrl(name);
+}
+
+// После загрузки адрес получает метку времени: иначе браузер покажет старую картинку из кеша.
+export function rememberAvatar(name, url) {
+  faces.set(name, `${url}?t=${Date.now()}`);
+  paintAvatars();
+}
+
 export function createAvatar(seedText, size = 24) {
+  const known = faces.get(seedText);
+  // Своё лицо загружено — рисуем картинку вместо спрайта.
+  if (typeof known === "string") {
+    const img = document.createElement("img");
+    img.className = "avatar";
+    img.src = known;
+    img.alt = "";
+    img.title = seedText;
+    img.style.width = `${size}px`;
+    img.style.height = `${size}px`;
+    return img;
+  }
+
+  if (!faces.has(seedText) && !probes.has(seedText)) check(seedText);
+
   const { base, eyes } = sprite(hash(seedText));
   const wrap = document.createElement("span");
   wrap.className = "avatar";
   wrap.style.width = `${size}px`;
   wrap.style.height = `${size}px`;
   wrap.title = seedText;
+  // Пока спрайт на экране, помним, кого он изображает: по этому имени его заменит загруженное лицо.
+  wrap.dataset.avatarName = seedText;
+  wrap.dataset.avatarSize = String(size);
 
   const face = document.createElement("canvas");
   face.width = SIZE;

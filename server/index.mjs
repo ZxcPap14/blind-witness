@@ -1,11 +1,12 @@
 import { createServer } from "node:http";
-import { readFile } from "node:fs/promises";
+import { readFile, unlink, writeFile } from "node:fs/promises";
 import { mkdirSync } from "node:fs";
 import { dirname, extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { WebSocketServer } from "ws";
 import { loadCase, loadCases } from "./load.mjs";
 import { buildCase } from "./blocks.mjs";
+import { AVATAR_LIMIT, sniffImage } from "./avatars.mjs";
 import { Room } from "./room.mjs";
 import { Store } from "./store.mjs";
 import { validateCase } from "./editor.mjs";
@@ -29,6 +30,8 @@ const PORT = Number(process.env.PORT ?? 8080);
 const DB_FILE = process.env.DB ?? join(ROOT, "data", "blind-witness.db");
 
 mkdirSync(dirname(DB_FILE), { recursive: true });
+const AVATAR_DIR = join(dirname(DB_FILE), "avatars");
+mkdirSync(AVATAR_DIR, { recursive: true });
 const store = new Store(DB_FILE);
 
 const SESSION_COOKIE = "sid";
@@ -116,6 +119,49 @@ async function api(req, res, url) {
     if (path === "/api/validate" && req.method === "POST") {
       const body = await readJson(req, 262144);
       return json(res, 200, validateCase(body));
+    }
+
+    // Лицо хранится файлом по id аккаунта, а в ссылке стоит имя: игроку не нужно знать id.
+    if (path.startsWith("/api/avatar")) {
+      const who = path.slice("/api/avatar/".length);
+
+      if (req.method === "GET") {
+        const id = who ? store.idByKey(decodeURIComponent(who)) : null;
+        const body = id ? await readFile(join(AVATAR_DIR, String(id))).catch(() => null) : null;
+        if (!body) {
+          res.writeHead(404, { "cache-control": "public, max-age=60" });
+          return res.end();
+        }
+        res.writeHead(200, {
+          "content-type": sniffImage(body)?.mime ?? "application/octet-stream",
+          "cache-control": "public, max-age=300",
+          "x-content-type-options": "nosniff",
+        });
+        return res.end(body);
+      }
+
+      const user = currentUser(req);
+      if (!user) return json(res, 401, { error: "Сначала войдите в аккаунт" });
+      const file = join(AVATAR_DIR, String(user.id));
+
+      if (req.method === "DELETE") {
+        await unlink(file).catch(() => {});
+        return json(res, 200, { ok: true });
+      }
+
+      if (req.method === "POST") {
+        const chunks = [];
+        let size = 0;
+        for await (const chunk of req) {
+          size += chunk.length;
+          if (size > AVATAR_LIMIT) return json(res, 413, { error: "Картинка больше 200 КБ" });
+          chunks.push(chunk);
+        }
+        const body = Buffer.concat(chunks);
+        if (!sniffImage(body)) return json(res, 415, { error: "Только PNG, JPEG или WebP" });
+        await writeFile(file, body);
+        return json(res, 200, { ok: true, url: `/api/avatar/${encodeURIComponent(user.name)}` });
+      }
     }
 
     return json(res, 404, { error: "not_found" });

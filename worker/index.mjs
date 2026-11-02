@@ -14,7 +14,7 @@ const pickCase = (id) => {
     const forced = CASES.find((item) => item.id === id);
     if (forced) return forced;
   }
-  const sources = [...CASES, () => buildCase(blocks)];
+  const sources = [...CASES.map((item) => () => item), () => buildCase(blocks)];
   return sources[Math.floor(Math.random() * sources.length)]();
 };
 

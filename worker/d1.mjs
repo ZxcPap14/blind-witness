@@ -1,9 +1,9 @@
 // Аккаунты, сессии и таблица компании в D1. Повторяет server/store.mjs,
 // но на WebCrypto: в Workers нет node:crypto.
+import { nameKey } from "../server/avatars.mjs";
 
 const SESSION_TTL = 30 * 24 * 60 * 60 * 1000;
 const ITERATIONS = 100000;
-
 const encoder = new TextEncoder();
 const hex = (bytes) => [...new Uint8Array(bytes)].map((b) => b.toString(16).padStart(2, "0")).join("");
 const bytes = (text) => new Uint8Array(text.match(/../g)?.map((pair) => parseInt(pair, 16)) ?? []);
@@ -74,6 +74,11 @@ export class D1Store {
     return token;
   }
 
+  async idByKey(name) {
+    const row = await this.db.prepare("SELECT id FROM users WHERE key = ?").bind(nameKey(name)).first();
+    return row?.id ?? null;
+  }
+
   async userByToken(token) {
     if (!token) return null;
     const row = await this.db
@@ -108,6 +113,25 @@ export class D1Store {
   async stats(userId) {
     const row = await this.db.prepare("SELECT games, wins FROM stats WHERE user_id = ?").bind(userId).first();
     return { games: row?.games ?? 0, wins: row?.wins ?? 0 };
+  }
+
+  // Лицо хранится в D1 рядом с аккаунтом: отдельного хранилища не заводим, а R2 на аккаунте не включён.
+  async putAvatar(userId, mime, bytes) {
+    await this.db
+      .prepare(
+        `INSERT INTO avatars (user_id, mime, bytes, updated) VALUES (?, ?, ?, ?)
+         ON CONFLICT(user_id) DO UPDATE SET mime = excluded.mime, bytes = excluded.bytes, updated = excluded.updated`,
+      )
+      .bind(userId, mime, bytes, Date.now())
+      .run();
+  }
+
+  async avatar(userId) {
+    return this.db.prepare("SELECT mime, bytes FROM avatars WHERE user_id = ?").bind(userId).first();
+  }
+
+  async removeAvatar(userId) {
+    await this.db.prepare("DELETE FROM avatars WHERE user_id = ?").bind(userId).run();
   }
 
   async leaderboard(limit = 10) {

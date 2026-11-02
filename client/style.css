@@ -196,6 +196,9 @@ form input[type="text"], form input:not([type]) { flex: 1; }
 }
 .avatar .eyes { animation: breathe 2.8s steps(1) infinite, blink 5.2s steps(1) infinite; }
 
+/* Загруженное лицо — обычная картинка, без пиксельной сетки. */
+img.avatar { object-fit: cover; image-rendering: auto; }
+
 @keyframes breathe { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1px); } }
 @keyframes blink { 0%, 94% { opacity: 1; } 95%, 97% { opacity: 0; } 98%, 100% { opacity: 1; } }
 
