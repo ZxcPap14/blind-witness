@@ -4,7 +4,8 @@ import { mkdirSync } from "node:fs";
 import { dirname, extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { WebSocketServer } from "ws";
-import { loadCases } from "./load.mjs";
+import { loadCase, loadCases } from "./load.mjs";
+import { buildCase } from "./blocks.mjs";
 import { Room } from "./room.mjs";
 import { Store } from "./store.mjs";
 import { validateCase } from "./editor.mjs";
@@ -12,10 +13,18 @@ import { validateCase } from "./editor.mjs";
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const CLIENT = join(ROOT, "client");
 const CASES = loadCases(join(ROOT, "cases"));
+// Собранное из блоков дело каждый раз новое: убийцу, место, время и оружие выбирает код.
+const BLOCKS = loadCase(join(ROOT, "cases", "blocks", "lighthouse.json"));
 const FORCED = process.env.CASE;
-const pickCase = () =>
-  (FORCED && CASES.find((item) => item.id === FORCED)) ||
-  CASES[Math.floor(Math.random() * CASES.length)];
+const pickCase = () => {
+  if (FORCED === BLOCKS.id) return buildCase(BLOCKS);
+  if (FORCED) {
+    const forced = CASES.find((item) => item.id === FORCED);
+    if (forced) return forced;
+  }
+  const sources = [...CASES.map((item) => () => item), () => buildCase(BLOCKS)];
+  return sources[Math.floor(Math.random() * sources.length)]();
+};
 const PORT = Number(process.env.PORT ?? 8080);
 const DB_FILE = process.env.DB ?? join(ROOT, "data", "blind-witness.db");
 

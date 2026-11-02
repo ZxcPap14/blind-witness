@@ -1,12 +1,22 @@
 import { Room } from "../server/room.mjs";
+import { buildCase } from "../server/blocks.mjs";
 import { api, cookieOf } from "./api.mjs";
 import { D1Store } from "./d1.mjs";
 import lighthouse from "../cases/lighthouse-01.json";
 import theatre from "../cases/theatre-02.json";
 import sosny from "../cases/sosny-03.json";
+import blocks from "../cases/blocks/lighthouse.json";
 
 const CASES = [lighthouse, theatre, sosny];
-const pickCase = (id) => (id && CASES.find((item) => item.id === id)) || CASES[Math.floor(Math.random() * CASES.length)];
+const pickCase = (id) => {
+  if (id === blocks.id) return buildCase(blocks);
+  if (id) {
+    const forced = CASES.find((item) => item.id === id);
+    if (forced) return forced;
+  }
+  const sources = [...CASES, () => buildCase(blocks)];
+  return sources[Math.floor(Math.random() * sources.length)]();
+};
 
 export default {
   async fetch(request, env) {
