@@ -1,5 +1,7 @@
 import { Room } from "../server/room.mjs";
 import { projection } from "../server/case.mjs";
+import { api, cookieOf } from "./api.mjs";
+import { D1Store } from "./d1.mjs";
 import lighthouse from "../cases/lighthouse-01.json";
 import theatre from "../cases/theatre-02.json";
 import sosny from "../cases/sosny-03.json";
@@ -7,31 +9,26 @@ import sosny from "../cases/sosny-03.json";
 const CASES = [lighthouse, theatre, sosny];
 const pickCase = (id) => (id && CASES.find((item) => item.id === id)) || CASES[Math.floor(Math.random() * CASES.length)];
 
-const json = (body, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json; charset=utf-8" },
-  });
-
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    if (url.pathname === "/ws") {
-      const code = (url.searchParams.get("room") || "default").slice(0, 16);
-      return env.ROOMS.get(env.ROOMS.idFromName(code)).fetch(request);
-    }
-
-    if (url.pathname === "/api/me") return json({ user: null, guestOnly: true });
-    if (url.pathname === "/api/leaderboard") return json({ rows: [] });
-    if (url.pathname.startsWith("/api/")) return json({ error: "На проде аккаунты пока выключены" }, 501);
-
-    // Редактор без D1 полуживой: форма есть, проверка отвечает 501. Пока прячем.
-    if (url.pathname === "/editor") return Response.redirect(`${url.origin}/`, 302);
+    if (url.pathname.startsWith("/api/")) return api(request, env, url);
+    if (url.pathname === "/ws") return openRoom(request, env, url);
 
     return env.ASSETS.fetch(request);
   },
 };
+
+// Имя и id игрока берём из сессии здесь: комната не верит сообщению клиента.
+async function openRoom(request, env, url) {
+  const user = await new D1Store(env.DB).userByToken(cookieOf(request.headers.get("cookie"), "sid"));
+  const headers = new Headers(request.headers);
+  headers.set("x-user-id", user ? String(user.id) : "");
+  headers.set("x-user-name", user?.name ?? "");
+  const code = (url.searchParams.get("room") || "default").slice(0, 16);
+  return env.ROOMS.get(env.ROOMS.idFromName(code)).fetch(new Request(request, { headers }));
+}
 
 // Одна комната = один Durable Object. Состояние живёт в памяти, пока открыт сокет.
 export class RoomObject {
@@ -55,6 +52,14 @@ export class RoomObject {
       });
       if (data) room.load(data);
       room.persist = () => this.state.storage.put("room", room.snapshot());
+      // Дело закрыто — каждому игроку с аккаунтом строка в таблицу компании.
+      // shortcut: запись в D1 не ждём, дело к этому моменту уже закрыто.
+      room.onFinish = (verdict) => {
+        const store = new D1Store(this.env.DB);
+        for (const player of room.players.values()) {
+          if (player.userId) store.finish(player.userId, verdict.result === "win").catch(() => {});
+        }
+      };
       this.room = room;
     }
     return this.room;
@@ -74,6 +79,8 @@ export class RoomObject {
     server.accept();
 
     const session = { name: null };
+    const userId = Number(request.headers.get("x-user-id")) || null;
+    const userName = request.headers.get("x-user-name") ?? "";
     const fail = (code) => server.send(JSON.stringify({ t: "error", code }));
 
     server.addEventListener("message", async (event) => {
@@ -86,8 +93,9 @@ export class RoomObject {
 
       try {
         if (msg.t === "join") {
-          session.name = String(msg.name ?? "").trim().slice(0, 24);
-          room.join(session.name);
+          // С аккаунтом имя берётся из сессии: чужим именем не войти.
+          session.name = (userName || String(msg.name ?? "")).trim().slice(0, 24);
+          room.join(session.name, userId);
           room.players.get(session.name).ws = server;
           room.send(session.name, room.state(session.name));
           if (room.started) {

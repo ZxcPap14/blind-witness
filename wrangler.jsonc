@@ -6,8 +6,15 @@
     "directory": "./client",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/ws", "/api/*", "/editor"]
+    "run_worker_first": ["/ws", "/api/*"]
   },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "blind-witness",
+      "database_id": "6959dbea-c499-4d3c-9a23-461358808db9"
+    }
+  ],
   "durable_objects": {
     "bindings": [{ "name": "ROOMS", "class_name": "RoomObject" }]
   },
