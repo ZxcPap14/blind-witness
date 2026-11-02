@@ -88,6 +88,8 @@ $("authForm").addEventListener("submit", (event) => {
     applyCode();
     return connect();
   }
+  // Где аккаунтов нет, Enter в форме означает «войти гостем».
+  if (state.guestOnly) return $("guestBtn").click();
   auth("/api/login");
 });
 
@@ -123,6 +125,16 @@ async function boot() {
   const me = await fetch("/api/me")
     .then((response) => response.json())
     .catch(() => ({ user: null }));
+
+  // Прод без D1 отдаёт guestOnly: аккаунтов и статистики там нет, форма — только гость.
+  if (me.guestOnly) {
+    state.guestOnly = true;
+    $("authForm").classList.add("solo");
+    $("password").classList.add("hidden");
+    $("registerBtn").classList.add("hidden");
+    $("loginBtn").classList.add("hidden");
+    $("company").classList.add("hidden");
+  }
 
   if (me.user) {
     state.me = me.user.name;

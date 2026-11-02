@@ -22,9 +22,12 @@ export default {
       return env.ROOMS.get(env.ROOMS.idFromName(code)).fetch(request);
     }
 
-    if (url.pathname === "/api/me") return json({ user: null });
+    if (url.pathname === "/api/me") return json({ user: null, guestOnly: true });
     if (url.pathname === "/api/leaderboard") return json({ rows: [] });
     if (url.pathname.startsWith("/api/")) return json({ error: "На проде аккаунты пока выключены" }, 501);
+
+    // Редактор без D1 полуживой: форма есть, проверка отвечает 501. Пока прячем.
+    if (url.pathname === "/editor") return Response.redirect(`${url.origin}/`, 302);
 
     return env.ASSETS.fetch(request);
   },

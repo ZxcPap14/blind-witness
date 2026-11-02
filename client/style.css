@@ -217,6 +217,9 @@ form input[type="text"], form input:not([type]) { flex: 1; }
 
 #authForm input { width: 100%; }
 
+/* Где аккаунтов нет, поле имени занимает всю ширину. */
+#authForm.solo { grid-template-columns: 1fr; }
+
 #roomCode {
   grid-column: 1 / -1;
   font-family: "Consolas", monospace;
