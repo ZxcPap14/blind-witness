@@ -137,3 +137,41 @@ test("после закрытия дела обвинять нельзя", () =>
   room.accuse("Аня", "s1");
   assert.throws(() => room.accuse("Боря", "s3"), /game_over/);
 });
+
+test("ведущий видит все документы и правду, игрок — только свои", () => {
+  const { room } = makeRoom(["Аня", "Боря"]);
+  room.join("Гоша", null, "host");
+  room.start("Аня");
+  const host = room.packetFor("Гоша");
+  assert.equal(host.clues.length, caseData.clues.length);
+  assert.equal(host.truth.culprit, caseData.culprit);
+  assert.equal(room.packetFor("Аня").truth, undefined);
+});
+
+test("ведущий открывает улику чужой роли", () => {
+  const { room } = makeRoom(["Аня", "Боря"]);
+  room.join("Гоша", null, "host");
+  room.start("Аня");
+  const foreign = caseData.clues.find((clue) => !room.players.get("Аня").roles.includes(clue.role));
+  room.attach("Гоша", foreign.id);
+  assert.ok(room.evidence.has(foreign.id));
+});
+
+test("наблюдатель молчит и не обвиняет", () => {
+  const { room } = makeRoom(["Аня", "Боря"]);
+  room.join("Соня", null, "observer");
+  room.start("Аня");
+  assert.throws(() => room.say("Соня", "подсказка"), /observer_silent/);
+  assert.throws(() => room.accuse("Соня", caseData.culprit), /not_your_call/);
+});
+
+test("ведущий не обвиняет, роли достаются только игрокам", () => {
+  const { room } = makeRoom(["Аня"]);
+  room.join("Гоша", null, "host");
+  assert.throws(() => room.start("Аня"), /need_two/);
+  room.join("Боря", null, "player");
+  room.start("Аня");
+  assert.deepEqual(room.packetFor("Гоша").roles, []);
+  assert.deepEqual([...room.players.values()].flatMap((player) => player.roles).sort(), [...CORE_ROLES].sort());
+  assert.throws(() => room.accuse("Гоша", caseData.culprit), /not_your_call/);
+});

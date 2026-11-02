@@ -1,5 +1,4 @@
 import { Room } from "../server/room.mjs";
-import { projection } from "../server/case.mjs";
 import { api, cookieOf } from "./api.mjs";
 import { D1Store } from "./d1.mjs";
 import lighthouse from "../cases/lighthouse-01.json";
@@ -95,16 +94,10 @@ export class RoomObject {
         if (msg.t === "join") {
           // С аккаунтом имя берётся из сессии: чужим именем не войти.
           session.name = (userName || String(msg.name ?? "")).trim().slice(0, 24);
-          room.join(session.name, userId);
+          room.join(session.name, userId, msg.mode);
           room.players.get(session.name).ws = server;
           room.send(session.name, room.state(session.name));
-          if (room.started) {
-            room.send(session.name, {
-              t: "welcome",
-              roles: room.players.get(session.name).roles,
-              ...projection(room.caseData, room.players.get(session.name).roles),
-            });
-          }
+          if (room.started) room.send(session.name, room.packetFor(session.name));
           return;
         }
 

@@ -14,6 +14,11 @@
       <input id="roomCode" class="wide" placeholder="Код комнаты (пусто — новая)" maxlength="16" autocomplete="off" spellcheck="false">
       <input id="name" placeholder="Имя" maxlength="24" autocomplete="username">
       <input id="password" type="password" placeholder="Пароль" autocomplete="current-password">
+      <select id="mode" title="Ведущий видит правду и открывает улики; наблюдатель смотрит молча">
+        <option value="player">Игрок</option>
+        <option value="host">Ведущий</option>
+        <option value="observer">Наблюдатель</option>
+      </select>
       <div class="auth-buttons">
         <button id="loginBtn" type="submit">Войти</button>
         <button id="registerBtn" type="button">Создать аккаунт</button>
@@ -32,6 +37,7 @@
       <div>
         <h2 id="caseTitle">—</h2>
         <p id="caseVictim" class="meta"></p>
+        <p id="caseTruth" class="meta hidden"></p>
       </div>
       <div class="room">
         <div id="who" class="who"></div>

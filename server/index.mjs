@@ -4,7 +4,6 @@ import { mkdirSync } from "node:fs";
 import { dirname, extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { WebSocketServer } from "ws";
-import { projection } from "./case.mjs";
 import { loadCases } from "./load.mjs";
 import { Room } from "./room.mjs";
 import { Store } from "./store.mjs";
@@ -179,13 +178,11 @@ wss.on("connection", (socket, request) => {
         room = getRoom(String(msg.code ?? "test").slice(0, 16));
         // С аккаунтом имя берётся из сессии: чужим именем не войти.
         name = user ? user.name : String(msg.name ?? "").trim().slice(0, 24);
-        room.join(name, user?.id ?? null);
+        room.join(name, user?.id ?? null, msg.mode);
         const player = room.players.get(name);
         player.ws = socket;
         room.send(name, room.state(name));
-        if (room.started) {
-          room.send(name, { t: "welcome", roles: player.roles, ...projection(room.caseData, player.roles) });
-        }
+        if (room.started) room.send(name, room.packetFor(name));
         return;
       }
 

@@ -4,6 +4,11 @@ import { judge, rating } from "./verdict.mjs";
 
 export const CORE_ROLES = ["map", "records", "witness", "autopsy"];
 export const EXTRA_ROLE = "archive";
+export const ALL_ROLES = [...CORE_ROLES, EXTRA_ROLE];
+export const MODES = ["player", "host", "observer"];
+
+// Ведущий и наблюдатель видят всё: им документы не раздаются, а показываются целиком.
+const seesAll = (player) => Boolean(player) && player.mode !== "player";
 
 const clamp = (value) => Math.min(0.95, Math.max(0.05, Number(value) || 0.5));
 
@@ -33,7 +38,10 @@ export class Room {
     return {
       code: this.code,
       caseId: this.caseData.id,
-      players: [...this.players].map(([name, player]) => [name, { roles: player.roles, userId: player.userId ?? null }]),
+      players: [...this.players].map(([name, player]) => [
+        name,
+        { roles: player.roles, userId: player.userId ?? null, mode: player.mode ?? "player" },
+      ]),
       evidence: [...this.evidence],
       notes: this.notes,
       positions: [...this.positions],
@@ -51,7 +59,7 @@ export class Room {
   load(data) {
     this.code = data.code ?? this.code;
     for (const [name, player] of data.players ?? []) {
-      this.players.set(name, { roles: player.roles ?? [], userId: player.userId ?? null, ws: null });
+      this.players.set(name, { roles: player.roles ?? [], userId: player.userId ?? null, mode: player.mode ?? "player", ws: null });
     }
     this.evidence = new Set(data.evidence ?? []);
     this.notes = data.notes ?? [];
@@ -69,39 +77,53 @@ export class Room {
     return [...this.players.keys()][0] ?? null;
   }
 
-  join(name, userId = null) {
+  join(name, userId = null, mode = "player") {
     if (!name) throw new Error("need_name");
     if (this.players.has(name)) return this.players.get(name);
     if (this.finished) throw new Error("game_over");
-    if (this.players.size >= 5) throw new Error("room_full");
-    const player = { roles: [], userId };
+    const clean = MODES.includes(mode) ? mode : "player";
+    const playing = [...this.players.values()].filter((player) => player.mode === "player").length;
+    if (clean === "player" ? playing >= 5 : this.players.size >= 6) throw new Error("room_full");
+    const player = { roles: [], userId, mode: clean };
     this.players.set(name, player);
-    this.chat.push({ from: "—", text: `${name} вошёл в комнату` });
+    const role = clean === "host" ? " ведущим" : clean === "observer" ? " наблюдателем" : "";
+    this.chat.push({ from: "—", text: `${name} вошёл в комнату${role}` });
     this.pushState();
     return player;
+  }
+
+  // Пакет участника: свои документы игроку, все документы и правда — ведущему.
+  packetFor(name) {
+    const player = this.players.get(name);
+    const packet = {
+      t: "welcome",
+      roles: player?.roles ?? [],
+      mode: player?.mode ?? "player",
+      ...projection(this.caseData, seesAll(player) ? ALL_ROLES : player?.roles ?? []),
+    };
+    if (seesAll(player)) {
+      const culprit = this.caseData.suspects.find((s) => s.id === this.caseData.culprit);
+      packet.truth = { culprit: this.caseData.culprit, name: culprit?.name ?? this.caseData.culprit };
+    }
+    return packet;
   }
 
   start(byName) {
     if (this.started) throw new Error("already_started");
     if (byName !== this.host) throw new Error("not_host");
-    const names = [...this.players.keys()];
+    const names = [...this.players.keys()].filter((name) => this.players.get(name).mode === "player");
     if (names.length < 2) throw new Error("need_two");
 
     const roles = [...CORE_ROLES];
     if (names.length >= 5) roles.push(EXTRA_ROLE);
 
     names.forEach((name, index) => {
-      const player = this.players.get(name);
-      player.roles = roles.filter((_, k) => k % names.length === index);
-      this.send(name, {
-        t: "welcome",
-        roles: player.roles,
-        ...projection(this.caseData, player.roles),
-      });
+      this.players.get(name).roles = roles.filter((_, k) => k % names.length === index);
     });
 
     this.started = true;
     this.startedAt = Date.now();
+    for (const name of this.players.keys()) this.send(name, this.packetFor(name));
     this.pushState();
   }
 
@@ -121,8 +143,11 @@ export class Room {
 
   ownClue(name, clueId) {
     if (!this.started) throw new Error("not_started");
+    const player = this.players.get(name);
+    if (!player) throw new Error("not_joined");
     const clue = this.caseData.clues.find((c) => c.id === clueId);
-    if (!clue || !this.players.get(name).roles.includes(clue.role)) throw new Error("not_yours");
+    // Ведущий открывает на столе любую улику — это его способ подкидывать материал.
+    if (!clue || (player.mode !== "host" && !player.roles.includes(clue.role))) throw new Error("not_yours");
     return clue;
   }
 
@@ -181,6 +206,7 @@ export class Room {
   }
 
   say(name, text) {
+    if (this.players.get(name)?.mode === "observer") throw new Error("observer_silent");
     const clean = String(text ?? "").trim().slice(0, 400);
     if (!clean) return;
     this.chat.push({ from: name, text: clean });
@@ -190,6 +216,8 @@ export class Room {
   accuse(name, suspect) {
     if (!this.started) throw new Error("not_started");
     if (this.finished) throw new Error("game_over");
+    // Обвинение — дело игроков: ведущий подсказывает, наблюдатель молчит.
+    if (this.players.get(name)?.mode !== "player") throw new Error("not_your_call");
     this.attempts += 1;
     const verdict = judge(this.caseData, { suspect, evidence: [...this.evidence] });
     if (verdict.result !== "retry") {
@@ -224,14 +252,16 @@ export class Room {
 
   // Снапшот одинаков по форме, но у каждого игрока свой: приватные заметки скрыты.
   state(viewer) {
-    return {
+    const player = this.players.get(viewer);
+    const message = {
       t: "state",
       code: this.code,
       host: this.host,
       started: this.started,
-      players: [...this.players.keys()].map((name) => ({
+      players: [...this.players].map(([name, item]) => ({
         name,
-        roles: this.players.get(name).roles,
+        roles: item.roles,
+        mode: item.mode ?? "player",
       })),
       evidence: [...this.evidence],
       cards: this.started ? this.cards(viewer) : [],
@@ -241,6 +271,8 @@ export class Room {
       startedAt: this.startedAt,
       finished: this.finished,
     };
+    if (this.started && seesAll(player)) message.truth = this.packetFor(viewer).truth;
+    return message;
   }
 
   broadcast(message) {

@@ -31,10 +31,16 @@ const ERRORS = {
   bad_message: "Сломанное сообщение",
   not_joined: "Сначала войдите в комнату",
   unknown_type: "Неизвестное действие",
+  observer_silent: "Наблюдатель не участвует в разговоре",
+  not_your_call: "Обвинение выдвигают игроки",
 };
+
+const MODE_NAMES = { host: "ведущий", observer: "наблюдатель" };
 
 const state = {
   me: null,
+  mode: "player",
+  truth: null,
   roles: [],
   clues: [],
   suspects: [],
@@ -172,7 +178,7 @@ function connect() {
   const query = `room=${encodeURIComponent(code)}${caseId ? `&case=${encodeURIComponent(caseId)}` : ""}`;
   const url = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws?${query}`;
   socket = new WebSocket(url);
-  socket.addEventListener("open", () => send({ t: "join", name: state.me }));
+  socket.addEventListener("open", () => send({ t: "join", name: state.me, mode: $("mode").value }));
   socket.addEventListener("message", (event) => handle(JSON.parse(event.data)));
   socket.addEventListener("close", () => ($("joinError").textContent = "Связь потеряна. Обновите страницу."));
 }
@@ -181,6 +187,8 @@ function handle(message) {
   switch (message.t) {
     case "welcome":
       state.roles = message.roles ?? [];
+      state.mode = message.mode ?? "player";
+      state.truth = message.truth ?? null;
       state.clues = message.clues ?? [];
       state.suspects = message.suspects ?? [];
       $("caseTitle").textContent = message.title ?? "Дело";
@@ -200,6 +208,10 @@ function handle(message) {
         startedAt: message.startedAt,
         finished: message.finished ?? null,
       });
+      state.truth = message.truth ?? state.truth;
+      // Переподключение: режим берём из общего списка, пока сервер не прислал свой пакет.
+      const mine = state.players.find((player) => player.name === state.me);
+      if (mine?.mode) state.mode = mine.mode;
       $("join").classList.add("hidden");
       $("game").classList.remove("hidden");
       return render();
@@ -223,28 +235,39 @@ function showError(code) {
 function render() {
   $("roomLabel").textContent = code;
   const isHost = state.host === state.me;
+  const playing = state.players.filter((player) => player.mode !== "host" && player.mode !== "observer").length;
 
   $("lobby").classList.toggle("hidden", state.started);
   $("table").classList.toggle("hidden", !state.started);
-  $("startBtn").disabled = !isHost || state.players.length < 2;
+  $("startBtn").disabled = !isHost || playing < 2;
   $("startBtn").textContent = isHost ? "Начать дело" : "Ждём создателя комнаты";
 
   $("playerList").innerHTML = state.players
     .map((player) => {
       const roles = player.roles.map((role) => ROLE_NAMES[role] ?? role).join(", ");
-      return `<li><span data-avatar="${escape(player.name)}" data-size="22"></span> ${escape(player.name)}${roles ? ` — ${roles}` : ""}</li>`;
+      const label = player.mode === "player" ? roles : MODE_NAMES[player.mode] ?? "";
+      return `<li><span data-avatar="${escape(player.name)}" data-size="22"></span> ${escape(player.name)}${label ? ` — ${label}` : ""}</li>`;
     })
     .join("");
 
+  $("caseTruth").textContent = state.truth ? `Правда: ${state.truth.name}` : "";
+  $("caseTruth").classList.toggle("hidden", !state.truth);
+
   if (!state.started) return;
 
-  $("clues").innerHTML = state.roles.length
+  // Наблюдатель только смотрит: ни приложить, ни подозревать, ни обвинять.
+  const canAct = state.mode !== "observer";
+
+  $("clues").innerHTML = state.clues.length
     ? state.clues
         .map((clue) => {
           const attached = state.evidence.includes(clue.id);
+          const action = canAct
+            ? `<div><button data-attach="${clue.id}" ${attached ? "disabled" : ""}>${attached ? "приложено" : "приложить к делу"}</button></div>`
+            : "";
           return `<div class="card-row">
             <span class="tag">${KIND_NAMES[clue.kind] ?? clue.kind}</span>${escape(clue.text)}
-            <div><button data-attach="${clue.id}" ${attached ? "disabled" : ""}>${attached ? "приложено" : "приложить к делу"}</button></div>
+            ${action}
           </div>`;
         })
         .join("")
@@ -265,11 +288,11 @@ function render() {
           </div>
         </div>
         ${marks.length ? `<div class="marks">${marks.map((mark) => `<span>${escape(mark)}</span>`).join("")}</div>` : ""}
-        <div class="row-buttons">
+        ${canAct ? `<div class="row-buttons">
           <button data-suspect-toggle="${suspect.id}">${mine ? "не подозреваю" : "подозреваю"}</button>
           <button data-ask="${suspect.id}">спросить</button>
-          <button class="wax" data-accuse="${suspect.id}" ${state.finished ? "disabled" : ""}>обвинить</button>
-        </div>
+          ${state.mode === "player" ? `<button class="wax" data-accuse="${suspect.id}" ${state.finished ? "disabled" : ""}>обвинить</button>` : ""}
+        </div>` : ""}
       </li>`;
     })
     .join("");
@@ -285,6 +308,9 @@ function render() {
     })
     .join("");
   log.scrollTop = log.scrollHeight;
+  // Наблюдатель смотрит молча; ведущий-игрок разговаривает наравне со всеми.
+  $("chatForm").classList.toggle("hidden", state.mode === "observer");
+  $("noteForm").classList.toggle("hidden", state.mode === "observer");
 
   if (state.finished) {
     const banner = $("verdict");

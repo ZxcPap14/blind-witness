@@ -32,14 +32,14 @@ body {
 #join h1 { margin: 0; font-size: 34px; letter-spacing: .5px; }
 .lead { color: #b9b2a4; margin: 0 0 10px; }
 
-input, button {
+input, select, button {
   font: inherit;
   padding: 9px 12px;
   border-radius: 3px;
   border: 1px solid var(--line);
 }
 
-input { background: var(--paper); color: var(--ink); min-width: 0; }
+input, select { background: var(--paper); color: var(--ink); min-width: 0; }
 button { background: var(--graphite); color: var(--paper); border-color: #43464d; cursor: pointer; }
 button:hover { background: #3a3d44; }
 button.wax { background: var(--wax); border-color: #6d1414; }
@@ -216,6 +216,8 @@ form input[type="text"], form input:not([type]) { flex: 1; }
 }
 
 #authForm input { width: 100%; }
+
+#authForm select { grid-column: 1 / -1; width: 100%; }
 
 #roomCode {
   grid-column: 1 / -1;
